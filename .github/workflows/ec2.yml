@@ -68,6 +68,10 @@ jobs:
             uses: SonarSource/sonarqube-scan-action@v6
             env:
               SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Authentication token from GitHub secrets
+            with:
+                args: >
+                  -Dsonar.projectKey=YourProjectKey
+                  -Dsonar.organization=YourOrganization
 
   security:
     runs-on: ubuntu-latest
