@@ -1,0 +1,74 @@
+# GitHub Actions Workflow: Continuous Deployment to EC2
+#
+# Purpose: Automatically deploys the application to an EC2 instance whenever code is
+# pushed to the main branch, enabling continuous deployment.
+#
+# Trigger: Runs on every push to the main branch
+#
+# Deployment Flow:
+# 1. Checkout - Clones the latest code from the repository
+# 2. SSH Deploy - Securely transfers files to EC2 using SSH
+# 3. Remote Setup - Connects to EC2 and executes deployment commands:
+#    - Updates system packages
+#    - Installs Apache web server
+#    - Configures Apache to start on boot
+#    - Replaces old application files with new deployment
+#
+# Security:
+# - All sensitive data (SSH keys, DNS, user, directory) stored in GitHub secrets
+# - Uses SSH key authentication (no passwords)
+# - Runs in protected 'prod' environment
+#
+# Requirements:
+# - EC2_SSH_KEY: Private SSH key for EC2 access
+# - HOST_DNS: EC2 instance public DNS/IP
+# - EC2_USER: SSH username (typically 'ubuntu' or 'ec2-user')
+# - TARGET_DIR: Deployment directory on EC2
+#
+
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    environment: prod
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the files
+        uses: actions/checkout@v6
+
+      - name: Deploy to EC2 Server
+        uses: easingthemes/ssh-deploy@main
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.EC2_USER }}
+          TARGET: ${{ secrets.TARGET_DIR }}
+
+      - name: Executing remote ssh commands using ssh key
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo apt-get -y update
+            
+            #Install Apache web server for launching the application
+            sudo apt-get install -y apache2
+            sudo systemctl daemon-reload
+            sudo systemctl start apache2
+            sudo systemctl enable apache2
+            cd ${{ secrets.TARGET_DIR }}
+            
+           # Remove existing contents of /var/www/html
+            sudo rm -rf /var/www/html/*
+           
+            # Move new files to /var/www/html
+            sudo mv * /var/www/html
