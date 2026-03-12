@@ -1,29 +1,49 @@
-# GitHub Actions Workflow: Continuous Deployment to EC2
+# GitHub Actions Workflow: Continuous Deployment to EC2 with Security & Quality Checks
 #
-# Purpose: Automatically deploys the application to an EC2 instance whenever code is
-# pushed to the main branch, enabling continuous deployment.
+# Purpose: Automatically scans code for quality and security issues, then deploys the 
+# application to an EC2 instance whenever code is pushed to the main branch.
 #
 # Trigger: Runs on every push to the main branch
 #
-# Deployment Flow:
-# 1. Checkout - Clones the latest code from the repository
-# 2. SSH Deploy - Securely transfers files to EC2 using SSH
-# 3. Remote Setup - Connects to EC2 and executes deployment commands:
-#    - Updates system packages
-#    - Installs Apache web server
-#    - Configures Apache to start on boot
-#    - Replaces old application files with new deployment
+# Workflow Jobs:
+# 
+# 1. SonarQube Job - Code Quality Analysis
+#    - Checks out code with full git history for accurate analysis
+#    - Runs SonarQube scan to detect code quality issues, bugs, and vulnerabilities
+#    - Requires SONAR_TOKEN secret for authentication
+#
+# 2. Security Job - Dependency Vulnerability Scanning
+#    - Checks out code
+#    - Sets up Node.js environment (v18)
+#    - Generates package.json for dependency tracking
+#    - Installs npm dependencies
+#    - Runs Snyk security scan to detect vulnerabilities in dependencies
+#    - Requires SNYK_TOKEN secret for authentication
+#
+# 3. Deploy Job - EC2 Deployment
+#    - Checks out the latest code from repository
+#    - Transfers files to EC2 via SSH (easingthemes/ssh-deploy)
+#    - Connects to EC2 via SSH (appleboy/ssh-action) and executes:
+#      * Updates system packages (apt-get update)
+#      * Installs Apache web server
+#      * Starts and enables Apache service
+#      * Navigates to target deployment directory
+#      * Removes existing contents from /var/www/html
+#      * Moves new application files to /var/www/html
+#    - Runs in protected 'prod' environment
 #
 # Security:
-# - All sensitive data (SSH keys, DNS, user, directory) stored in GitHub secrets
+# - All sensitive data stored in GitHub secrets
 # - Uses SSH key authentication (no passwords)
-# - Runs in protected 'prod' environment
+# - Protected production environment
 #
-# Requirements:
+# Required GitHub Secrets:
+# - SONAR_TOKEN: SonarQube authentication token
+# - SNYK_TOKEN: Snyk authentication token
 # - EC2_SSH_KEY: Private SSH key for EC2 access
-# - HOST_DNS: EC2 instance public DNS/IP
+# - HOST_DNS: EC2 instance public DNS/IP address
 # - EC2_USER: SSH username (typically 'ubuntu' or 'ec2-user')
-# - TARGET_DIR: Deployment directory on EC2
+# - TARGET_DIR: Deployment directory on EC2 where files are initially transferred
 #
 
 name: Deploy to EC2
@@ -34,6 +54,43 @@ on:
       - main
 
 jobs:
+  sonarqube:
+        name: SonarQube
+        runs-on: ubuntu-latest
+        steps:
+          # Checkout full git history for accurate blame information
+          - uses: actions/checkout@v6
+            with:
+              fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          
+          # Run SonarQube analysis using official action
+          - name: SonarQube Scan
+            uses: SonarSource/sonarqube-scan-action@v6
+            env:
+              SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Authentication token from GitHub secrets
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+            
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+            
+      - name: Generate package.json file
+        run: npm init -y
+            
+      - name: Install dependencies
+        run: npm install
+            
+      - name: Run Snyk Security Scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+            
   deploy:
     environment: prod
     name: Deploy to EC2
