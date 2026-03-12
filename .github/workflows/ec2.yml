@@ -70,8 +70,8 @@ jobs:
               SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Authentication token from GitHub secrets
             with:
                 args: >
-                  -Dsonar.projectKey=YourProjectKey
-                  -Dsonar.organization=YourOrganization
+                  -Dsonar.projectKey=Selase17_deploy_on_ec2
+                  -Dsonar.organization=selase17
 
   security:
     runs-on: ubuntu-latest
