@@ -72,8 +72,8 @@ jobs:
               Organization: ${{ secrets.Organization }} # Authentication token from GitHub secrets
             with:
                 args: >
-                  -Dsonar.projectKey=
-                  -Dsonar.organization=
+                  -Dsonar.projectKey=${ secrets.ProjectKey }
+                  -Dsonar.organization=${ secrets.Organization }
 
   snyk:
     runs-on: ubuntu-latest
