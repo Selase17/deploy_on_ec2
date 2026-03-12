@@ -67,13 +67,15 @@ jobs:
           - name: SonarQube Scan
             uses: SonarSource/sonarqube-scan-action@v6
             env:
-              SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}  # Authentication token from GitHub secrets
+              SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
+              ProjectKey: ${{ secrets.ProjectKey }}
+              Organization: ${{ secrets.Organization }} # Authentication token from GitHub secrets
             with:
                 args: >
-                  -Dsonar.projectKey=Selase17_deploy_on_ec2
-                  -Dsonar.organization=selase17
+                  -Dsonar.projectKey=
+                  -Dsonar.organization=
 
-  security:
+  snyk:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -99,6 +101,7 @@ jobs:
     environment: prod
     name: Deploy to EC2
     runs-on: ubuntu-latest
+    needs: [sonarqube, snyk]  # Ensure deployment only happens if both quality and security checks pass
 
     steps:
       - name: Checkout the files
